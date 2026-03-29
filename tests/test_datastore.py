@@ -2444,6 +2444,78 @@ def test_lighter_error_message() -> None:
     assert store.trade.find() == []
 
 
+def test_lighter_subscribed_snapshot() -> None:
+    """Check that subscribed/ type messages are processed as initial snapshots."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    # subscribed/ticker
+    store.onmessage(
+        {
+            "channel": "ticker:0",
+            "nonce": 100,
+            "ticker": {
+                "s": "ETH",
+                "a": {"price": "2000.00", "size": "1.0"},
+                "b": {"price": "1999.00", "size": "2.0"},
+            },
+            "timestamp": 1774000000000,
+            "type": "subscribed/ticker",
+        },
+        ws,
+    )
+    assert len(store.ticker.find()) == 1
+    assert store.ticker.find()[0]["s"] == "ETH"
+
+    # subscribed/market_stats
+    store.onmessage(
+        {
+            "channel": "market_stats:0",
+            "market_stats": {
+                "symbol": "ETH",
+                "market_id": 0,
+                "mark_price": "2000.00",
+                "current_funding_rate": "0.0001",
+            },
+            "timestamp": 1774000000000,
+            "type": "subscribed/market_stats",
+        },
+        ws,
+    )
+    assert len(store.market_stats.find()) == 1
+
+    # subscribed/order_book
+    store.onmessage(
+        {
+            "channel": "order_book:0",
+            "order_book": {
+                "code": 0,
+                "asks": [{"price": "2001.00", "size": "1.0"}],
+                "bids": [{"price": "1999.00", "size": "2.0"}],
+                "nonce": 100,
+                "begin_nonce": 99,
+            },
+            "timestamp": 1774000000000,
+            "type": "subscribed/order_book",
+        },
+        ws,
+    )
+    assert len(store.order_book.find()) == 2
+
+    # subscribed/trade
+    store.onmessage(
+        {
+            "channel": "trade:0",
+            "trades": [
+                {"trade_id": 1, "price": "2000.00", "size": "0.1", "market_id": 0},
+            ],
+            "type": "subscribed/trade",
+        },
+        ws,
+    )
+    assert len(store.trade.find()) == 1
+
+
 def test_edgex_ticker() -> None:
     """Check the behavior of EdgeXDataStore.ticker."""
     store = pybotters.EdgeXDataStore()

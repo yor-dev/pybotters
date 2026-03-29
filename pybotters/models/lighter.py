@@ -31,13 +31,14 @@ class LighterDataStore(DataStoreCollection):
             logger.warning(msg)
             return
 
-        if type_ == "update/ticker":
+        # subscribed/{channel} は初回スナップショット、update/{channel} は差分更新
+        if type_.endswith("/ticker"):
             self["ticker"]._onmessage(msg)
-        elif type_ == "update/market_stats":
+        elif type_.endswith("/market_stats"):
             self["market_stats"]._onmessage(msg)
-        elif type_ == "update/order_book":
+        elif type_.endswith("/order_book"):
             self["order_book"]._onmessage(msg)
-        elif type_ == "update/trade":
+        elif type_.endswith("/trade"):
             self["trade"]._onmessage(msg)
 
     @property
