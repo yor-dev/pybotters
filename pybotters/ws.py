@@ -422,6 +422,12 @@ class Heartbeat:
             await ws.send_str('{"method":"ping"}')
             await asyncio.sleep(30.0)
 
+    @staticmethod
+    async def lighter(ws: ClientWebSocketResponse):
+        while not ws.closed:
+            await ws.ping()
+            await asyncio.sleep(60.0)
+
 
 class Auth:
     @staticmethod
@@ -782,6 +788,8 @@ class HeartbeatHosts:
         "api-cloud.bittrade.co.jp": Heartbeat.bittrade,
         "api.hyperliquid.xyz": Heartbeat.hyperliquid,
         "api.hyperliquid-testnet.xyz": Heartbeat.hyperliquid,
+        "mainnet.zklighter.elliot.ai": Heartbeat.lighter,
+        "testnet.zklighter.elliot.ai": Heartbeat.lighter,
     }
 
 

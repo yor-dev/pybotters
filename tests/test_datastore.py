@@ -2092,3 +2092,310 @@ def test_coincheck_private_order_market() -> None:
     )
 
     assert store.order.find() == []
+
+
+def test_lighter_ticker() -> None:
+    """Check the behavior of LighterDataStore.ticker."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "channel": "ticker:0",
+            "nonce": 6442420597,
+            "ticker": {
+                "s": "ETH",
+                "a": {"price": "2150.10", "size": "4.6512"},
+                "b": {"price": "2149.99", "size": "17.4551"},
+            },
+            "timestamp": 1773158679717,
+            "type": "update/ticker",
+        },
+        ws,
+    )
+
+    assert store.ticker.find() == [
+        {
+            "s": "ETH",
+            "a": {"price": "2150.10", "size": "4.6512"},
+            "b": {"price": "2149.99", "size": "17.4551"},
+        }
+    ]
+
+    # Update with new price
+    store.onmessage(
+        {
+            "channel": "ticker:0",
+            "nonce": 6442420598,
+            "ticker": {
+                "s": "ETH",
+                "a": {"price": "2151.00", "size": "3.0000"},
+                "b": {"price": "2150.50", "size": "10.0000"},
+            },
+            "timestamp": 1773158680000,
+            "type": "update/ticker",
+        },
+        ws,
+    )
+
+    assert store.ticker.find() == [
+        {
+            "s": "ETH",
+            "a": {"price": "2151.00", "size": "3.0000"},
+            "b": {"price": "2150.50", "size": "10.0000"},
+        }
+    ]
+
+
+def test_lighter_market_stats() -> None:
+    """Check the behavior of LighterDataStore.market_stats."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "channel": "market_stats:0",
+            "market_stats": {
+                "symbol": "ETH",
+                "market_id": 0,
+                "index_price": "2965.30",
+                "mark_price": "2963.63",
+                "open_interest": "185926683.471886",
+                "current_funding_rate": "-0.0005",
+                "funding_rate": "0.0011",
+                "funding_timestamp": 1769187600001,
+                "daily_base_token_volume": 296009.9355,
+                "daily_quote_token_volume": 870882976.341333,
+                "daily_price_low": 2888.37,
+                "daily_price_high": 2984,
+                "daily_price_change": 0.830824189844348,
+            },
+            "timestamp": 1773158679717,
+            "type": "update/market_stats",
+        },
+        ws,
+    )
+
+    result = store.market_stats.find()
+    assert len(result) == 1
+    assert result[0]["market_id"] == 0
+    assert result[0]["current_funding_rate"] == "-0.0005"
+    assert result[0]["funding_rate"] == "0.0011"
+    assert result[0]["mark_price"] == "2963.63"
+
+    # Update the same market
+    store.onmessage(
+        {
+            "channel": "market_stats:0",
+            "market_stats": {
+                "symbol": "ETH",
+                "market_id": 0,
+                "index_price": "2970.00",
+                "mark_price": "2968.00",
+                "open_interest": "186000000.000000",
+                "current_funding_rate": "0.0001",
+                "funding_rate": "0.0011",
+                "funding_timestamp": 1769187600001,
+                "daily_base_token_volume": 300000.0,
+                "daily_quote_token_volume": 880000000.0,
+                "daily_price_low": 2888.37,
+                "daily_price_high": 2990,
+                "daily_price_change": 1.0,
+            },
+            "timestamp": 1773158680000,
+            "type": "update/market_stats",
+        },
+        ws,
+    )
+
+    result = store.market_stats.find()
+    assert len(result) == 1
+    assert result[0]["mark_price"] == "2968.00"
+    assert result[0]["current_funding_rate"] == "0.0001"
+
+
+def test_lighter_order_book() -> None:
+    """Check the behavior of LighterDataStore.order_book."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    # Snapshot (initial)
+    store.onmessage(
+        {
+            "channel": "order_book:0",
+            "offset": 41692864,
+            "order_book": {
+                "code": 0,
+                "asks": [
+                    {"price": "3327.46", "size": "29.0915"},
+                    {"price": "3328.00", "size": "10.0000"},
+                ],
+                "bids": [
+                    {"price": "3326.00", "size": "15.5000"},
+                    {"price": "3325.50", "size": "20.0000"},
+                ],
+                "offset": 41692864,
+                "nonce": 4037957053,
+                "begin_nonce": 4037957034,
+            },
+            "timestamp": 1766434222583,
+            "type": "update/order_book",
+        },
+        ws,
+    )
+
+    assert len(store.order_book.find({"side": "ask"})) == 2
+    assert len(store.order_book.find({"side": "bid"})) == 2
+
+    # Diff update: modify an ask, remove a bid
+    store.onmessage(
+        {
+            "channel": "order_book:0",
+            "offset": 41692865,
+            "order_book": {
+                "code": 0,
+                "asks": [{"price": "3327.46", "size": "50.0000"}],
+                "bids": [{"price": "3325.50", "size": "0"}],
+                "offset": 41692865,
+                "nonce": 4037957054,
+            },
+            "timestamp": 1766434222600,
+            "type": "update/order_book",
+        },
+        ws,
+    )
+
+    asks = store.order_book.find({"side": "ask"})
+    bids = store.order_book.find({"side": "bid"})
+    assert len(asks) == 2
+    assert len(bids) == 1
+
+    updated_ask = store.order_book.get(
+        {"market_id": 0, "side": "ask", "price": "3327.46"}
+    )
+    assert updated_ask is not None
+    assert updated_ask["size"] == "50.0000"
+
+    removed_bid = store.order_book.get(
+        {"market_id": 0, "side": "bid", "price": "3325.50"}
+    )
+    assert removed_bid is None
+
+
+def test_lighter_order_book_sorted() -> None:
+    """Check the behavior of LighterDataStore.order_book.sorted()."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "channel": "order_book:0",
+            "offset": 100,
+            "order_book": {
+                "code": 0,
+                "asks": [
+                    {"price": "3330.00", "size": "5.0"},
+                    {"price": "3328.00", "size": "10.0"},
+                ],
+                "bids": [
+                    {"price": "3325.00", "size": "8.0"},
+                    {"price": "3327.00", "size": "12.0"},
+                ],
+                "offset": 100,
+                "nonce": 1000,
+                "begin_nonce": 999,
+            },
+            "timestamp": 1766434222583,
+            "type": "update/order_book",
+        },
+        ws,
+    )
+
+    result = store.order_book.sorted()
+    # asks: ascending
+    assert result["ask"][0]["price"] == "3328.00"
+    assert result["ask"][1]["price"] == "3330.00"
+    # bids: descending
+    assert result["bid"][0]["price"] == "3327.00"
+    assert result["bid"][1]["price"] == "3325.00"
+
+
+def test_lighter_trade() -> None:
+    """Check the behavior of LighterDataStore.trade."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "channel": "trade:0",
+            "liquidation_trades": [],
+            "nonce": 8630448841,
+            "trades": [
+                {
+                    "trade_id": 16164557907,
+                    "type": "trade",
+                    "market_id": 0,
+                    "size": "0.1336",
+                    "price": "2181.83",
+                    "is_maker_ask": False,
+                    "timestamp": 1773854156654,
+                },
+                {
+                    "trade_id": 16164557908,
+                    "type": "trade",
+                    "market_id": 0,
+                    "size": "0.5000",
+                    "price": "2182.00",
+                    "is_maker_ask": True,
+                    "timestamp": 1773854156700,
+                },
+            ],
+            "type": "update/trade",
+        },
+        ws,
+    )
+
+    assert len(store.trade.find()) == 2
+
+    # Additional trades are appended
+    store.onmessage(
+        {
+            "channel": "trade:0",
+            "liquidation_trades": [],
+            "nonce": 8630448842,
+            "trades": [
+                {
+                    "trade_id": 16164557909,
+                    "type": "trade",
+                    "market_id": 0,
+                    "size": "1.0000",
+                    "price": "2183.00",
+                    "is_maker_ask": False,
+                    "timestamp": 1773854157000,
+                },
+            ],
+            "type": "update/trade",
+        },
+        ws,
+    )
+
+    assert len(store.trade.find()) == 3
+
+
+def test_lighter_error_message() -> None:
+    """Check that error messages are logged, not processed as data."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "type": "error",
+            "message": "invalid channel",
+        },
+        ws,
+    )
+
+    assert store.ticker.find() == []
+    assert store.market_stats.find() == []
+    assert store.order_book.find() == []
+    assert store.trade.find() == []

@@ -854,6 +854,24 @@ async def test_heartbeat_frame(mocker: pytest_mock.MockerFixture, test_input):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("test_input",),
+    [
+        (pybotters.ws.Heartbeat.lighter,),
+    ],
+)
+async def test_heartbeat_ping(mocker: pytest_mock.MockerFixture, test_input):
+    m_wsresp = AsyncMock()
+    type(m_wsresp).closed = PropertyMock(side_effect=[False, True])
+    m_asyncio_sleep = mocker.patch("asyncio.sleep")
+
+    await asyncio.wait_for(test_input(m_wsresp), timeout=5.0)
+
+    assert m_wsresp.ping.called
+    assert m_asyncio_sleep.called
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     (
         "test_input",
         "expected",
