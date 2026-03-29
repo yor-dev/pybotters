@@ -18,7 +18,7 @@ from yarl import URL
 from pybotters.helpers import hyperliquid
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, MutableMapping
 
     import aiohttp
 
@@ -235,6 +235,7 @@ class Auth:
         key: str = session.__dict__["_apis"][Hosts.items[url.host].name][0]
         secret: bytes = session.__dict__["_apis"][Hosts.items[url.host].name][1]
 
+        # NOTE: Use milliseconds for nonce to maintain compatibility with ccxt (#135)
         nonce = str(int(time.time() * 1000))
         body = FormData(data)()
         message = f"{nonce}{url}".encode() + body._value
@@ -259,7 +260,7 @@ class Auth:
         secret: bytes = session.__dict__["_apis"][api_name][1]
         passphrase: str = session.__dict__["_apis"][api_name][2]
 
-        timestamp = f'{datetime.datetime.utcnow().isoformat(timespec="milliseconds")}Z'
+        timestamp = f"{datetime.datetime.utcnow().isoformat(timespec='milliseconds')}Z"
         body = JsonPayload(data) if data else FormData(data)()
         text = f"{timestamp}{method}{url.raw_path_qs}".encode() + body._value
         sign = base64.b64encode(
@@ -424,7 +425,7 @@ class Auth:
         secret: bytes = session.__dict__["_apis"][Hosts.items[url.host].name][1]
         passphrase: str = session.__dict__["_apis"][Hosts.items[url.host].name][2]
 
-        timestamp = f'{datetime.datetime.utcnow().isoformat(timespec="milliseconds")}Z'
+        timestamp = f"{datetime.datetime.utcnow().isoformat(timespec='milliseconds')}Z"
         body = JsonPayload(data) if data else FormData(data)()
         text = f"{timestamp}{method}{url.raw_path_qs}".encode() + body._value
         sign = base64.b64encode(
@@ -484,19 +485,13 @@ class Auth:
         return (method, url)
 
     @staticmethod
-    def hyperliquid(args: tuple[str, URL], kwargs: dict[str, Any]) -> tuple[str, URL]:
-        url: URL = args[1]
-        data: dict[str, Any] = kwargs["data"] or {}
-
-        session: aiohttp.ClientSession = kwargs["session"]
-        secret_key: str = session.__dict__["_apis"][Hosts.items[url.host].name][0]
-
-        if url.path.startswith("/info"):
-            return args
-
+    def _hyperliquid(
+        data: MutableMapping[str, Any], url: URL, private_key: str, /
+    ) -> None:
         action: dict[str, Any] = data.get("action", {})
         nonce: int = data.setdefault("nonce", hyperliquid.get_timestamp_ms())
         vault_address: str | None = data.get("vaultAddress")
+        expires_after: int | None = data.get("expiresAfter")
 
         if "signature" not in data:
             eip712_typed_data: tuple[
@@ -508,15 +503,32 @@ class Auth:
             if "hyperliquidChain" not in action:
                 is_mainnet = isinstance(url.host, str) and "testnet" not in url.host
                 eip712_typed_data = hyperliquid.construct_l1_action(
-                    action, nonce, is_mainnet, vault_address
+                    action,
+                    nonce,
+                    is_mainnet,
+                    vault_address=vault_address,
+                    expires_after=expires_after,
                 )
             # sign_user_signed_action
             else:
                 eip712_typed_data = hyperliquid.construct_user_signed_action(action)
                 data["action"] = eip712_typed_data[2]  # MessageData
 
-            signature = hyperliquid.sign_typed_data(secret_key, *eip712_typed_data)
+            signature = hyperliquid.sign_typed_data(private_key, *eip712_typed_data)
             data["signature"] = signature
+
+    @staticmethod
+    def hyperliquid(args: tuple[str, URL], kwargs: dict[str, Any]) -> tuple[str, URL]:
+        url: URL = args[1]
+        data: dict[str, Any] = kwargs["data"] or {}
+
+        session: aiohttp.ClientSession = kwargs["session"]
+        private_key: str = session.__dict__["_apis"][Hosts.items[url.host].name][0]
+
+        if url.path.startswith(("/info", "/ws")):
+            return args
+
+        Auth._hyperliquid(data, url, private_key)
 
         if data:
             kwargs.update({"data": JsonPayload(data)})

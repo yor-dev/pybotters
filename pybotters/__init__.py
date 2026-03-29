@@ -8,20 +8,20 @@ from .models.binance import (
     BinanceSpotDataStore,
     BinanceUSDSMDataStore,
 )
-from .models.bitbank import bitbankDataStore
+from .models.bitbank import bitbankDataStore, bitbankPrivateDataStore
 from .models.bitflyer import bitFlyerDataStore
 from .models.bitget import BitgetDataStore
 from .models.bitget_v2 import BitgetV2DataStore
 from .models.bitmex import BitMEXDataStore
 from .models.bybit import BybitDataStore
-from .models.coincheck import CoincheckDataStore
+from .models.coincheck import CoincheckDataStore, CoincheckPrivateDataStore
 from .models.gmocoin import GMOCoinDataStore
 from .models.hyperliquid import HyperliquidDataStore
 from .models.kucoin import KuCoinDataStore
 from .models.okx import OKXDataStore
 from .models.phemex import PhemexDataStore
 from .store import DataStore, DataStoreCollection, StoreChange, StoreStream
-from .ws import WebSocketApp, WebSocketQueue
+from .ws import ClientWebSocketResponse, WebSocketApp, WebSocketQueue
 
 __all__: tuple[str, ...] = (
     # version
@@ -31,6 +31,7 @@ __all__: tuple[str, ...] = (
     "FetchResult",
     "NotJSONContent",
     # ws
+    "ClientWebSocketResponse",
     "WebSocketApp",
     "WebSocketQueue",
     # store
@@ -47,6 +48,7 @@ __all__: tuple[str, ...] = (
     "BitgetDataStore",
     "BybitDataStore",
     "CoincheckDataStore",
+    "CoincheckPrivateDataStore",
     "GMOCoinDataStore",
     "HyperliquidDataStore",
     "KuCoinDataStore",
@@ -54,6 +56,7 @@ __all__: tuple[str, ...] = (
     "PhemexDataStore",
     "bitFlyerDataStore",
     "bitbankDataStore",
+    "bitbankPrivateDataStore",
     # auth
     "Auth",
 )

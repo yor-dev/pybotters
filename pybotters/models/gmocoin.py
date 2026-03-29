@@ -141,10 +141,10 @@ class GMOCoinDataStore(DataStoreCollection):
 
         対応エンドポイント
 
-        - GET /private/v1/latestExecutions (:attr:`.CoincheckDataStore.executions`)
-        - GET /private/v1/activeOrders (:attr:`.CoincheckDataStore.orders`)
-        - GET /private/v1/openPositions (:attr:`.CoincheckDataStore.positions`)
-        - GET /private/v1/positionSummary (:attr:`.CoincheckDataStore.position_summary`)
+        - GET /private/v1/latestExecutions (:attr:`.GMOCoinDataStore.executions`)
+        - GET /private/v1/activeOrders (:attr:`.GMOCoinDataStore.orders`)
+        - GET /private/v1/openPositions (:attr:`.GMOCoinDataStore.positions`)
+        - GET /private/v1/positionSummary (:attr:`.GMOCoinDataStore.position_summary`)
         """
         for f in asyncio.as_completed(aws):
             resp = await f
@@ -182,7 +182,7 @@ class GMOCoinDataStore(DataStoreCollection):
                 self.token = data["data"]
                 asyncio.create_task(self._token(resp.__dict__["_raw_session"]))
 
-    def _onmessage(self, msg: Item, ws: ClientWebSocketResponse) -> None:
+    def _onmessage(self, msg: Item, ws: ClientWebSocketResponse | None = None) -> None:
         if "error" in msg:
             logger.warning(msg)
         if "channel" in msg:

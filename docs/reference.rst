@@ -27,6 +27,7 @@ WebSocket API Returns
    :toctree: generated
 
    pybotters.WebSocketApp
+   pybotters.ClientWebSocketResponse
 
 
 Common WebSocket handlers
@@ -54,6 +55,7 @@ Exchange-specific Data Stores
    pybotters.BitgetDataStore
    pybotters.BybitDataStore
    pybotters.CoincheckDataStore
+   pybotters.CoincheckPrivateDataStore
    pybotters.GMOCoinDataStore
    pybotters.HyperliquidDataStore
    pybotters.KuCoinDataStore
@@ -61,6 +63,7 @@ Exchange-specific Data Stores
    pybotters.PhemexDataStore
    pybotters.bitFlyerDataStore
    pybotters.bitbankDataStore
+   pybotters.bitbankPrivateDataStore
 
 
 Abstract DataStore
@@ -91,3 +94,4 @@ Helpers
 
    pybotters.helpers.GMOCoinHelper
    pybotters.helpers.hyperliquid
+   pybotters.helpers.bitbank

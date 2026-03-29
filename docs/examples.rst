@@ -152,6 +152,21 @@ Hyperliquid
 
 .. literalinclude:: ../examples/datastore/hyperliquid.py
 
+Open orders
+-----------
+
+Coincheck
+~~~~~~~~~
+
+Coincheck の WebSocket は新規発注のイベントが配信されない仕様となっています。
+次のように専用のメソッド :meth:`feed_response` を使って REST API のレスポンスを DataStore に取り込みます。
+
+.. warning::
+
+    このサンプルは実際に少額の注文を発注します。
+
+.. literalinclude:: ../examples/open_orders/coincheck.py
+
 Helpers
 -------
 
@@ -169,3 +184,16 @@ GMO Coin
 以下は適当なチャンネルを購読して、アクセストークン管理ヘルパーのタスクをスケジュールするサンプルコードです。
 
 .. literalinclude:: ../examples/helpers/gmocoin.py
+
+.. _bitbankhelper:
+
+bitbank
+~~~~~~~
+
+:class:`.bitbankPrivateDataStore` と組み込みの PubNub クライアント :mod:`pybotters.helpers.bitbank` を利用したサンプルコードです。
+
+このサンプルコードでは、まず REST API を利用してアクティブオーダーを初期化します。
+その後組み込みの PubNub クライアントを利用して Private Stream API を非同期でサブスクライブします。
+そして、DataStore の :ref:`watch` 機能を利用してアクティブオーダーの変更を監視します。
+
+.. literalinclude:: ../examples/helpers/bitbank.py

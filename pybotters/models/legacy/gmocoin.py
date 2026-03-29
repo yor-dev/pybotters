@@ -323,7 +323,7 @@ class OrderBookStore(DataStore):
         }
         for item in self:
             if all(k in item and query[k] == item[k] for k in query):
-                result[item["side"]].append(cast(OrderLevel, item))
+                result[item["side"]].append(cast("OrderLevel", item))
         result[OrderSide.SELL].sort(key=lambda x: x["price"])
         result[OrderSide.BUY].sort(key=lambda x: x["price"], reverse=True)
         return result
@@ -354,7 +354,7 @@ class OrderStore(DataStore):
             self._delete([cast("Item", mes)])
 
     def _onexecution(self, mes: Execution) -> None:
-        current = cast(Order, self.get({"order_id": mes["order_id"]}))
+        current = cast("Order", self.get({"order_id": mes["order_id"]}))
         if (
             mes["order_executed_size"]
             and current
@@ -482,8 +482,8 @@ class MessageHelper:
             symbol=Symbol[data["symbol"]],
             settle_type=SettleType[data["settleType"]],
             side=OrderSide[data["side"]],
-            price=Decimal(data.get("executionPrice", data.get("price"))),
-            size=Decimal(data.get("executionSize", data.get("size"))),
+            price=Decimal(data.get("executionPrice") or data["price"]),
+            size=Decimal(data.get("executionSize") or data["size"]),
             timestamp=parse_datetime(
                 data.get("executionTimestamp", data.get("timestamp"))
             ),
@@ -511,7 +511,7 @@ class MessageHelper:
 
     @staticmethod
     def to_order(data: Item) -> "Order":
-        status = OrderStatus[data.get("status", data.get("orderStatus"))]
+        status = OrderStatus[data.get("status") or data["orderStatus"]]
         timestamp = parse_datetime(data.get("orderTimestamp", data.get("timestamp")))
         return Order(
             order_id=data["orderId"],
@@ -522,10 +522,10 @@ class MessageHelper:
             order_status=status,
             cancel_type=CancelType[data.get("cancelType", CancelType.NONE.name)],
             order_timestamp=timestamp,
-            price=Decimal(data.get("price", data.get("orderPrice"))),
-            size=Decimal(data.get("size", data.get("orderSize"))),
+            price=Decimal(data.get("price") or data["orderPrice"]),
+            size=Decimal(data.get("size") or data["orderSize"]),
             executed_size=Decimal(
-                data.get("executedSize", data.get("orderExecutedSize"))
+                data.get("executedSize") or data["orderExecutedSize"]
             ),
             losscut_price=Decimal(data["losscutPrice"]),
             time_in_force=data["timeInForce"],
@@ -629,7 +629,7 @@ class GMOCoinDataStore(DataStoreCollection):
                 self.token = data["data"]
                 asyncio.create_task(self._token(resp.__dict__["_raw_session"]))
 
-    def _onmessage(self, msg: Item, ws: ClientWebSocketResponse) -> None:
+    def _onmessage(self, msg: Item, ws: ClientWebSocketResponse | None = None) -> None:
         if "error" in msg:
             logger.warning(msg)
         if "channel" in msg:

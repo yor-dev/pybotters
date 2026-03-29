@@ -30,7 +30,7 @@ Client class
 
 .. note::
 
-    pybotters の中核機能は `asyncio <https://docs.python.org/ja/3/library/asyncio.html>`_ と `aiohttp <https://docs.aiohttp.org/en/stable/client_quickstart.html>`__ の上に構築されています。
+    pybotters の中核機能は :mod:`asyncio` と :mod:`aiohttp` の上に構築されています。
     それらの知識が全くないと、このユーザーガイドを進めるのは難しいかもしれません。
 
     asyncio と aiohttp を掻い摘んで理解するには、著者によるこちらの記事がおすすめです。
@@ -77,7 +77,7 @@ Fetch API
 第 2 引数 (``url``) はリクエストの URL です。 文字列で指定します。
 
 返り値は :class:`.FetchResult` です。
-:attr:`.FetchResult.response` 属性には `aiohttp.ClientResponse <https://docs.aiohttp.org/en/stable/client_reference.html#aiohttp.ClientResponse>`_ が格納されており、
+:attr:`.FetchResult.response` 属性には :class:`aiohttp.ClientResponse` が格納されており、
 :attr:`.FetchResult.data` 属性にはデコードされた JSON データが格納されています。
 
 .. versionadded:: 1.0
@@ -90,7 +90,7 @@ HTTP method API
 従来の :ref:`HTTP メソッド API <http-method-api>` で HTTP リクエストを作成します。
 
 :ref:`HTTP メソッド API <http-method-api>` でリクエストを開始するには *async with* ブロックを利用します。
-こちらは従来の `aiohttp.ClientSession <https://docs.aiohttp.org/en/stable/client_reference.html#client-session>`_ と同様のリクエスト／レスポンスのフローになります。
+こちらは従来の :class:`aiohttp.ClientSession` と同様のリクエスト／レスポンスのフローになります。
 
 * :meth:`.Client.request`
 * :meth:`.Client.get`
@@ -117,7 +117,7 @@ HTTP method API
                 data = await resp.json()
             print(data)
 
-まず *async with* ブロックの返り値によってレスポンス `aiohttp.ClientResponse <https://docs.aiohttp.org/en/stable/client_reference.html#aiohttp.ClientResponse>`_ を受信します。
+まず *async with* ブロックの返り値によってレスポンス :class:`aiohttp.ClientResponse` を受信します。
 このレスポンスは HTTP ヘッダーまでとなります。
 そして *async* :meth:`json` メソッドを ``await`` するによって残りの HTTP 本文が受信され、データが JSON としてデコードされた値が返ります。
 
@@ -174,7 +174,7 @@ Response headers and data
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 :ref:`Fetch API <fetch-api>` の戻り値におけるオブジェクト属性 :attr:`.FetchResult.response` と、
-:ref:`HTTP メソッド API <http-method-api>` の戻り値は共に `aiohttp.ClientResponse <https://docs.aiohttp.org/en/stable/client_reference.html#aiohttp.ClientResponse>`_ です。
+:ref:`HTTP メソッド API <http-method-api>` の戻り値は共に :class:`aiohttp.ClientResponse` です。
 
 HTTP レスポンスヘッダーについては、 ``headers`` 属性から取得できます。
 
@@ -267,7 +267,7 @@ WebSocket API
     これらの引数は送信するメッセージをリストで括ることで複数のメッセージを送信できます (:ref:`multiple-websocket-senders-handlers`) 。
 * WebSocket メッセージの受信
     ``hdlr_str``, ``hdlr_bytes``, ``hdlr_json`` 引数で受信した WebSocket メッセージのハンドラ (コールバック) を指定します。
-    指定するハンドラは第 1 引数 ``msg: aiohttp.WSMessage`` 第 2 引数 ``ws: aiohttp.ClientWebSocketResponse`` を取る必要があります。
+    指定するハンドラの第 1 引数はそれぞれ :class:`str`, :class:`bytes`, :data:`typing.Any` を取る必要があります。 第 2 引数は :class:`.ClientWebSocketResponse` または ``None`` を取る必要があります。
     上記のコードでは無名関数をハンドラに指定して WebSocket メッセージを標準出力しています。
 
     pybotters には組み込みのハンドラとして、汎用性の高い :ref:`websocketqueue` や、 :ref:`取引所固有の DataStore <exchange-specific-datastore>` があります。
@@ -709,9 +709,9 @@ aiohttp との違いについて。
 
 pybotters は `aiohttp <https://pypi.org/project/aiohttp/>`__ を基盤として利用しているライブラリです。
 
-その為、:class:`pybotters.Client` におけるインターフェースの多くは ``aiohttp.ClientSession`` と同様です。
-また pybotters の HTTP リクエストのレスポンスクラスは aiohttp のレスポンスクラスを返します。
-その為 pybotters を高度に利用するには aiohttp ライブラリについても理解しておくことが重要です。
+その為、:class:`pybotters.Client` におけるインターフェースの多くは :class:`aiohttp.ClientSession` と同様です。
+また pybotters の HTTP リクエストのレスポンスクラスは :class:`aiohttp.ClientResponse` を返します。
+その為 pybotters を高度に利用するには :class:`aiohttp` ライブラリについても理解しておくことが重要です。
 
 ただし **重要な幾つかの違いも存在します** 。
 

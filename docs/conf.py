@@ -36,6 +36,8 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_new_tab_link",
     "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+    "sphinx_llms_txt",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -53,6 +55,12 @@ language = "ja"
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", ".venv"]
 
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+    "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
+    "aiohttp": ("https://docs.aiohttp.org/en/stable/", None),
+}
+intersphinx_disabled_domains = ["std"]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -75,3 +83,18 @@ autoclass_content = "both"
 templates_path = ["_templates"]
 
 html_title = "pybotters Docs"
+
+html_baseurl = "https://pybotters.readthedocs.io/ja/stable/"
+
+# -- Options llms.txt --------------------------------------------------------
+
+llms_txt_summary = """`pybotters` is a Python library for crypto bot traders.
+This library is an **HTTP and WebSocket API client**.
+It has the following features, making it useful for developing a trading bot.
+
+Please note: The links below are in HTML format due to the documentation builder's
+requirements. However, you can access the original source files (reStructuredText)
+directly.
+For example, for `https://pybotters.readthedocs.io/ja/stable/index.html`, you can access
+the source at `https://pybotters.readthedocs.io/ja/stable/_sources/index.rst.txt`. For
+LLMs, using the source files is generally more efficient than parsing HTML."""

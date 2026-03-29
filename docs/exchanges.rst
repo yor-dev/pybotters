@@ -43,6 +43,7 @@ DataStore
         * ``collateral`` キーのみが更新されます。
     * :attr:`.bitFlyerDataStore.balance`
         * ``amount`` キーのみが更新されます。
+
     .. warning::
         bitFlyer の WebSocket チャンネル ``child_order_events`` は各種データを提供しておらず、計算の元となる約定情報のみを提供しています。 その為 ``bitFlyerDataStore`` は約定情報から独自に各種データを計算しています。 値が正確になるよう努めていますが、端数処理などの影響で実データとズレが生じる可能性があることに注意してください。 正確な値を必要とする場合は、HTTP API による :meth:`.bitFlyerDataStore.initialize` を利用してください。
 
@@ -110,14 +111,14 @@ Authentication
     HTTP リクエスト時に取引所が定める認証情報が自動設定されます。 認証方式は ``ACCESS-TIME-WINDOW`` を採用します。
 
     https://github.com/bitbankinc/bitbank-api-docs/blob/master/rest-api_JP.md#%E8%AA%8D%E8%A8%BC
-* WebSocket 認証
-    *現時点で Private WebSocket API はありません*
+* PubNub 認証
+    :mod:`pybotters.helpers.bitbank` のヘルパー関数を利用して、自動的に PubNub の認証を行います。
 
 WebSocket
 ~~~~~~~~~
 
 * Socket.IO
-    bitbank の WebSocket は Socket.IO で実装されています。
+    bitbank の Public WebSocket は Socket.IO で実装されています。
     pybotters は Socket.IO にネイティブでは対応していない為、低レベルで URL の指定と購読リクエストを送信をする必要があります。
 
     低レベルで Socket.IO の購読リクエストには :meth:`.Client.ws_connect` の引数 ``send_str`` を ``'42["join-room","depth_whole_btc_jpy"]'`` のように指定します。
@@ -129,10 +130,23 @@ WebSocket
 * Ping-Pong
     * Socket.IO の Ping-Pong が自動で送信されます。
 
+PubNub
+~~~~~~
+
+* PubNub クライアント
+    bitbank の Private Stream API は PubNub によって配信されています。 これは WebSocket のようなプロトコルではありません。
+
+    pybotters はヘルパー関数として組み込みの PubNub クライアント :mod:`pybotters.helpers.bitbank` を提供しています。
+    このヘルパー関数群では Private Stream API のサブスクライブをできます。 さらにトークンの自動取得・トークンの自動更新を行います。
+    また :class:`.bitbankPrivateDataStore` を簡単に利用することができます。 (:ref:`Examples <bitbankhelper>`)
+
+    別途、ファースト・パーティの `PubNub SDK <https://www.pubnub.com/docs/sdks/python>`_ を利用することもできます。 これより高機能ですが、ただし pybotters の HTTP セッションとは互換性がありません。 組み込みのヘルパー関数を利用することで、イベントループをより適切に管理することができます。
+
 DataStore
 ~~~~~~~~~
 
 * :class:`.bitbankDataStore`
+* :class:`.bitbankPrivateDataStore`
 
 対応している WebSocket チャンネルはリファレンスの *ATTRIBUTES* をご覧ください。
 
@@ -152,12 +166,26 @@ Authentication
 
     https://coincheck.com/ja/documents/exchange/api#auth
 * WebSocket 認証
-    *現時点で Private WebSocket API はありません*
+    WebSocket 接続時に取引所が定める認証情報の WebSocket メッセージが自動送信されます。
+
+    https://coincheck.com/ja/documents/exchange/api#private-channels
 
 DataStore
 ~~~~~~~~~
 
 * :class:`.CoincheckDataStore`
+* :class:`.CoincheckPrivateDataStore`
+
+.. warning::
+
+    新規注文イベントは WebSocket からは送信されません。
+    ``POST /api/exchange/orders`` のレスポンスを別途再利用する必要があります。
+
+    またオープンオーダーに関して Coincheck のデータ形式には未約定数量が含まれていません。
+    ``CoincheckPrivateDataStore`` ではオープンオーダーの未約定数量が追跡できるように ``pending_amount``
+    および ``pending_market_buy_amount`` をイベントごとに計算してキーとして追加しています。
+
+    詳しくは :attr:`.CoincheckPrivateDataStore.order` をご覧ください。
 
 対応している WebSocket チャンネルはリファレンスの *ATTRIBUTES* をご覧ください。
 
@@ -566,6 +594,7 @@ DataStore
 
 対応している WebSocket チャンネルはリファレンスの *ATTRIBUTES* をご覧ください。
 
+
 Hyperliquid
 -----------
 
@@ -576,8 +605,8 @@ Authentication
 ~~~~~~~~~~~~~~
 
 * API 認証情報
-    * ``{"hyperliquid": ["SECRET_KEY"]}`` (Mainnet)
-    * ``{"hyperliquid_testnet": ["SECRET_KEY"]}`` (Testnet)
+    * ``{"hyperliquid": ["PRIVATE_KEY"]}`` (Mainnet)
+    * ``{"hyperliquid_testnet": ["PRIVATE_KEY"]}`` (Testnet)
 * HTTP 認証
     `Exchange endpoint <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint>`_ (``/exchange``) へのリクエストに対して以下の Request Body を省略することができます。 省略した場合、以下の値が自動設定されます。
 
@@ -586,10 +615,20 @@ Authentication
 
     実際の利用方法は :ref:`Examples <examples-place-order-hyperliquid>` を参照してください。
 * WebSocket 認証
-    まだ対応していません (Work in progress)。 以下のように手動で署名を行うことも可能です。
+    `Post requests <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket/post-requests>`_ の ``action`` タイプのメッセージ送信に対して以下の認証情報が自動設定されます。
+
+    * ``nonce``: 現在時刻のミリ秒
+    * ``signature``: ``action`` をハッシュ化し秘密鍵で署名した値
 
 手動で署名をする必要がある場合は、より低レベルな署名ヘルパー :mod:`pybotters.helpers.hyperliquid` を利用してください。
 
+WebSocket
+~~~~~~~~~
+
+* Ping-Pong
+    取引所が定める Ping-Pong メッセージが自動送信されます。
+
+    https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket
 
 DataStore
 ~~~~~~~~~
@@ -597,7 +636,3 @@ DataStore
 * :class:`.HyperliquidDataStore`
 
 対応している WebSocket チャンネルはリファレンスの *ATTRIBUTES* をご覧ください。
-
-.. warning::
-
-    部分的なサポートです。 一部のチャンネルは未対応です。 `#354 <https://github.com/pybotters/pybotters/issues/354>`_
