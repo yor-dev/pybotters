@@ -88,7 +88,13 @@ class MarketStats(DataStore):
     _KEYS = ["market_id"]
 
     def _onmessage(self, msg: Item) -> None:
-        self._update([msg["market_stats"]])
+        data = msg["market_stats"]
+        # market_stats/all: {"0": {...}, "1": {...}, ...}
+        # market_stats/{id}: {"symbol": "ETH", "market_id": 0, ...}
+        if "market_id" in data:
+            self._update([data])
+        else:
+            self._update(list(data.values()))
 
 
 class OrderBook(DataStore):

@@ -2215,6 +2215,48 @@ def test_lighter_market_stats() -> None:
     assert result[0]["current_funding_rate"] == "0.0001"
 
 
+def test_lighter_market_stats_all() -> None:
+    """Check the behavior of LighterDataStore.market_stats with market_stats/all."""
+    store = pybotters.LighterDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "channel": "market_stats:all",
+            "market_stats": {
+                "0": {
+                    "symbol": "ETH",
+                    "market_id": 0,
+                    "mark_price": "1995.83",
+                    "current_funding_rate": "-0.0008",
+                },
+                "1": {
+                    "symbol": "BTC",
+                    "market_id": 1,
+                    "mark_price": "66421.2",
+                    "current_funding_rate": "-0.0002",
+                },
+            },
+            "timestamp": 1774814400000,
+            "type": "update/market_stats",
+        },
+        ws,
+    )
+
+    result = store.market_stats.find()
+    assert len(result) == 2
+
+    eth = store.market_stats.get({"market_id": 0})
+    assert eth is not None
+    assert eth["symbol"] == "ETH"
+    assert eth["mark_price"] == "1995.83"
+
+    btc = store.market_stats.get({"market_id": 1})
+    assert btc is not None
+    assert btc["symbol"] == "BTC"
+    assert btc["mark_price"] == "66421.2"
+
+
 def test_lighter_order_book() -> None:
     """Check the behavior of LighterDataStore.order_book."""
     store = pybotters.LighterDataStore()
