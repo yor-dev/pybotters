@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -2399,3 +2400,289 @@ def test_lighter_error_message() -> None:
     assert store.market_stats.find() == []
     assert store.order_book.find() == []
     assert store.trade.find() == []
+
+
+def test_edgex_ticker() -> None:
+    """Check the behavior of EdgeXDataStore.ticker."""
+    store = pybotters.EdgeXDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "type": "quote-event",
+            "channel": "ticker.10000001",
+            "content": {
+                "dataType": "Snapshot",
+                "channel": "ticker.10000001",
+                "data": [
+                    {
+                        "contractId": "10000001",
+                        "contractName": "BTCUSD",
+                        "lastPrice": "66393.5",
+                        "indexPrice": "66411.046559188",
+                        "oraclePrice": "66421.375000",
+                        "markPrice": "66421.375000",
+                        "openInterest": "8235.101",
+                        "fundingRate": "-0.00005096",
+                        "fundingTime": "1774800000000",
+                        "nextFundingTime": "1774814400000",
+                        "priceChange": "-411.5",
+                        "priceChangePercent": "-0.006159",
+                        "high": "67100.9",
+                        "low": "66129.3",
+                        "open": "66805.0",
+                        "close": "66393.5",
+                        "trades": "60982",
+                        "size": "7318.603",
+                        "value": "487392951.3009",
+                    }
+                ],
+            },
+        },
+        ws,
+    )
+
+    result = store.ticker.find()
+    assert len(result) == 1
+    assert result[0]["contractId"] == "10000001"
+    assert result[0]["lastPrice"] == "66393.5"
+    assert result[0]["fundingRate"] == "-0.00005096"
+    assert result[0]["indexPrice"] == "66411.046559188"
+
+    # Update (changed)
+    store.onmessage(
+        {
+            "type": "quote-event",
+            "channel": "ticker.10000001",
+            "content": {
+                "dataType": "changed",
+                "data": [
+                    {
+                        "contractId": "10000001",
+                        "contractName": "BTCUSD",
+                        "lastPrice": "66500.0",
+                        "indexPrice": "66510.0",
+                        "oraclePrice": "66520.0",
+                        "markPrice": "66520.0",
+                        "openInterest": "8240.000",
+                        "fundingRate": "-0.00004000",
+                        "fundingTime": "1774800000000",
+                        "nextFundingTime": "1774814400000",
+                        "priceChange": "-305.0",
+                        "priceChangePercent": "-0.004",
+                        "high": "67100.9",
+                        "low": "66129.3",
+                        "open": "66805.0",
+                        "close": "66500.0",
+                        "trades": "61000",
+                        "size": "7320.000",
+                        "value": "487500000.0",
+                    }
+                ],
+            },
+        },
+        ws,
+    )
+
+    result = store.ticker.find()
+    assert len(result) == 1
+    assert result[0]["lastPrice"] == "66500.0"
+
+
+def test_edgex_depth() -> None:
+    """Check the behavior of EdgeXDataStore.depth."""
+    store = pybotters.EdgeXDataStore()
+    ws: Any = object()
+
+    # Snapshot
+    store.onmessage(
+        {
+            "type": "quote-event",
+            "channel": "depth.10000001.15",
+            "content": {
+                "dataType": "Snapshot",
+                "data": [
+                    {
+                        "contractId": "10000001",
+                        "depthType": "SNAPSHOT",
+                        "startVersion": "100",
+                        "endVersion": "101",
+                        "asks": [
+                            {"price": "66393.6", "size": "0.128"},
+                            {"price": "66394.6", "size": "3.199"},
+                        ],
+                        "bids": [
+                            {"price": "66392.1", "size": "0.067"},
+                            {"price": "66391.1", "size": "3.877"},
+                        ],
+                    }
+                ],
+            },
+        },
+        ws,
+    )
+
+    assert len(store.depth.find({"side": "ask"})) == 2
+    assert len(store.depth.find({"side": "bid"})) == 2
+
+    # Diff update: modify an ask, remove a bid
+    store.onmessage(
+        {
+            "type": "quote-event",
+            "channel": "depth.10000001.15",
+            "content": {
+                "dataType": "changed",
+                "data": [
+                    {
+                        "contractId": "10000001",
+                        "depthType": "CHANGED",
+                        "startVersion": "101",
+                        "endVersion": "102",
+                        "asks": [{"price": "66393.6", "size": "0.042"}],
+                        "bids": [{"price": "66391.1", "size": "0"}],
+                    }
+                ],
+            },
+        },
+        ws,
+    )
+
+    asks = store.depth.find({"side": "ask"})
+    bids = store.depth.find({"side": "bid"})
+    assert len(asks) == 2
+    assert len(bids) == 1
+
+    updated_ask = store.depth.get(
+        {"contractId": "10000001", "side": "ask", "price": "66393.6"}
+    )
+    assert updated_ask is not None
+    assert updated_ask["size"] == "0.042"
+
+    removed_bid = store.depth.get(
+        {"contractId": "10000001", "side": "bid", "price": "66391.1"}
+    )
+    assert removed_bid is None
+
+
+def test_edgex_depth_sorted() -> None:
+    """Check the behavior of EdgeXDataStore.depth.sorted()."""
+    store = pybotters.EdgeXDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "type": "quote-event",
+            "channel": "depth.10000001.15",
+            "content": {
+                "dataType": "Snapshot",
+                "data": [
+                    {
+                        "contractId": "10000001",
+                        "depthType": "SNAPSHOT",
+                        "asks": [
+                            {"price": "66400.0", "size": "1.0"},
+                            {"price": "66395.0", "size": "2.0"},
+                        ],
+                        "bids": [
+                            {"price": "66390.0", "size": "3.0"},
+                            {"price": "66393.0", "size": "4.0"},
+                        ],
+                    }
+                ],
+            },
+        },
+        ws,
+    )
+
+    result = store.depth.sorted()
+    assert result["ask"][0]["price"] == "66395.0"
+    assert result["ask"][1]["price"] == "66400.0"
+    assert result["bid"][0]["price"] == "66393.0"
+    assert result["bid"][1]["price"] == "66390.0"
+
+
+def test_edgex_trades() -> None:
+    """Check the behavior of EdgeXDataStore.trades."""
+    store = pybotters.EdgeXDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "type": "quote-event",
+            "channel": "trades.10000001",
+            "content": {
+                "dataType": "changed",
+                "data": [
+                    {
+                        "ticketId": "aaa-bbb-001",
+                        "time": "1774812452452",
+                        "price": "66393.5",
+                        "size": "0.006",
+                        "contractId": "10000001",
+                        "isBuyerMaker": False,
+                    },
+                    {
+                        "ticketId": "aaa-bbb-002",
+                        "time": "1774812452500",
+                        "price": "66394.0",
+                        "size": "0.010",
+                        "contractId": "10000001",
+                        "isBuyerMaker": True,
+                    },
+                ],
+            },
+        },
+        ws,
+    )
+
+    assert len(store.trades.find()) == 2
+
+    # Additional trades
+    store.onmessage(
+        {
+            "type": "quote-event",
+            "channel": "trades.10000001",
+            "content": {
+                "dataType": "changed",
+                "data": [
+                    {
+                        "ticketId": "aaa-bbb-003",
+                        "time": "1774812453000",
+                        "price": "66400.0",
+                        "size": "0.100",
+                        "contractId": "10000001",
+                        "isBuyerMaker": False,
+                    },
+                ],
+            },
+        },
+        ws,
+    )
+
+    assert len(store.trades.find()) == 3
+
+
+@pytest.mark.asyncio
+async def test_edgex_ping_pong() -> None:
+    """Check that EdgeXDataStore responds to server ping with pong."""
+    from unittest.mock import AsyncMock
+
+    store = pybotters.EdgeXDataStore()
+    ws = AsyncMock()
+
+    store.onmessage(
+        {"type": "ping", "time": "1774812460002"},
+        ws,
+    )
+
+    # Give the ensure_future task a chance to run
+    await asyncio.sleep(0)
+
+    ws.send_json.assert_called_once_with(
+        {"type": "pong", "time": "1774812460002"}
+    )
+
+    # Data stores should be unaffected
+    assert store.ticker.find() == []
+    assert store.depth.find() == []
+    assert store.trades.find() == []
