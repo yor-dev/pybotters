@@ -17,6 +17,7 @@ from .models.bybit import BybitDataStore
 from .models.coincheck import CoincheckDataStore, CoincheckPrivateDataStore
 from .models.edgex import EdgeXDataStore
 from .models.gmocoin import GMOCoinDataStore
+from .models.grvt import GRVTDataStore
 from .models.hyperliquid import HyperliquidDataStore
 from .models.kucoin import KuCoinDataStore
 from .models.lighter import LighterDataStore
@@ -53,6 +54,7 @@ __all__: tuple[str, ...] = (
     "CoincheckPrivateDataStore",
     "EdgeXDataStore",
     "GMOCoinDataStore",
+    "GRVTDataStore",
     "HyperliquidDataStore",
     "LighterDataStore",
     "KuCoinDataStore",

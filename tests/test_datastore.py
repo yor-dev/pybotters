@@ -2686,3 +2686,243 @@ async def test_edgex_ping_pong() -> None:
     assert store.ticker.find() == []
     assert store.depth.find() == []
     assert store.trades.find() == []
+
+
+def test_grvt_ticker() -> None:
+    """Check the behavior of GRVTDataStore.ticker."""
+    store = pybotters.GRVTDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "stream": "v1.ticker.s",
+            "selector": "BTC_USDT_Perp@500",
+            "sequence_number": "0",
+            "feed": {
+                "event_time": "1774813674500000000",
+                "instrument": "BTC_USDT_Perp",
+                "mark_price": "66372.18",
+                "index_price": "66408.40",
+                "last_price": "66369.4",
+                "last_size": "2.6",
+                "mid_price": "66369.35",
+                "best_bid_price": "66369.3",
+                "best_bid_size": "9.626",
+                "best_ask_price": "66369.4",
+                "best_ask_size": "1.185",
+                "funding_rate_8h_curr": "0.005",
+                "funding_rate_8h_avg": "0.005",
+                "open_interest": "2824.875",
+                "long_short_ratio": "1.648",
+            },
+        },
+        ws,
+    )
+
+    result = store.ticker.find()
+    assert len(result) == 1
+    assert result[0]["instrument"] == "BTC_USDT_Perp"
+    assert result[0]["last_price"] == "66369.4"
+    assert result[0]["funding_rate_8h_curr"] == "0.005"
+    assert result[0]["mark_price"] == "66372.18"
+
+    # Update
+    store.onmessage(
+        {
+            "stream": "v1.ticker.s",
+            "selector": "BTC_USDT_Perp@500",
+            "sequence_number": "382135",
+            "feed": {
+                "event_time": "1774813675000000000",
+                "instrument": "BTC_USDT_Perp",
+                "mark_price": "66400.00",
+                "index_price": "66410.00",
+                "last_price": "66398.0",
+                "last_size": "1.0",
+                "mid_price": "66397.50",
+                "best_bid_price": "66397.0",
+                "best_bid_size": "5.0",
+                "best_ask_price": "66398.0",
+                "best_ask_size": "3.0",
+                "funding_rate_8h_curr": "0.004",
+                "funding_rate_8h_avg": "0.004",
+                "open_interest": "2830.000",
+                "long_short_ratio": "1.65",
+            },
+        },
+        ws,
+    )
+
+    result = store.ticker.find()
+    assert len(result) == 1
+    assert result[0]["last_price"] == "66398.0"
+
+
+def test_grvt_book() -> None:
+    """Check the behavior of GRVTDataStore.book."""
+    store = pybotters.GRVTDataStore()
+    ws: Any = object()
+
+    # Snapshot (sequence_number "0")
+    store.onmessage(
+        {
+            "stream": "v1.book.d",
+            "selector": "BTC_USDT_Perp@500",
+            "sequence_number": "0",
+            "feed": {
+                "event_time": "1774813674650000000",
+                "instrument": "BTC_USDT_Perp",
+                "asks": [
+                    {"price": "66369.4", "size": "1.185", "num_orders": 5},
+                    {"price": "66370.0", "size": "0.032", "num_orders": 2},
+                ],
+                "bids": [
+                    {"price": "66369.3", "size": "9.626", "num_orders": 10},
+                    {"price": "66369.2", "size": "0.075", "num_orders": 1},
+                ],
+            },
+        },
+        ws,
+    )
+
+    assert len(store.book.find({"side": "ask"})) == 2
+    assert len(store.book.find({"side": "bid"})) == 2
+
+    # Delta update: modify an ask, remove a bid
+    store.onmessage(
+        {
+            "stream": "v1.book.d",
+            "selector": "BTC_USDT_Perp@500",
+            "sequence_number": "560991",
+            "feed": {
+                "event_time": "1774813675000000000",
+                "instrument": "BTC_USDT_Perp",
+                "asks": [
+                    {"price": "66369.4", "size": "2.000", "num_orders": 8},
+                ],
+                "bids": [
+                    {"price": "66369.2", "size": "0", "num_orders": 0},
+                ],
+            },
+        },
+        ws,
+    )
+
+    asks = store.book.find({"side": "ask"})
+    bids = store.book.find({"side": "bid"})
+    assert len(asks) == 2
+    assert len(bids) == 1
+
+    updated = store.book.get(
+        {"instrument": "BTC_USDT_Perp", "side": "ask", "price": "66369.4"}
+    )
+    assert updated is not None
+    assert updated["size"] == "2.000"
+
+    removed = store.book.get(
+        {"instrument": "BTC_USDT_Perp", "side": "bid", "price": "66369.2"}
+    )
+    assert removed is None
+
+
+def test_grvt_book_sorted() -> None:
+    """Check the behavior of GRVTDataStore.book.sorted()."""
+    store = pybotters.GRVTDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "stream": "v1.book.d",
+            "selector": "BTC_USDT_Perp@500",
+            "sequence_number": "0",
+            "feed": {
+                "event_time": "1774813674650000000",
+                "instrument": "BTC_USDT_Perp",
+                "asks": [
+                    {"price": "66400.0", "size": "1.0", "num_orders": 1},
+                    {"price": "66395.0", "size": "2.0", "num_orders": 1},
+                ],
+                "bids": [
+                    {"price": "66390.0", "size": "3.0", "num_orders": 1},
+                    {"price": "66393.0", "size": "4.0", "num_orders": 1},
+                ],
+            },
+        },
+        ws,
+    )
+
+    result = store.book.sorted()
+    assert result["ask"][0]["price"] == "66395.0"
+    assert result["ask"][1]["price"] == "66400.0"
+    assert result["bid"][0]["price"] == "66393.0"
+    assert result["bid"][1]["price"] == "66390.0"
+
+
+def test_grvt_trade() -> None:
+    """Check the behavior of GRVTDataStore.trade."""
+    store = pybotters.GRVTDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "stream": "v1.trade",
+            "selector": "BTC_USDT_Perp@500",
+            "sequence_number": "0",
+            "feed": {
+                "event_time": "1774809573002272849",
+                "instrument": "BTC_USDT_Perp",
+                "is_taker_buyer": True,
+                "size": "0.01",
+                "price": "66460.0",
+                "mark_price": "66442.97",
+                "trade_id": "109626184-2",
+                "venue": "ORDERBOOK",
+            },
+        },
+        ws,
+    )
+
+    assert len(store.trade.find()) == 1
+
+    store.onmessage(
+        {
+            "stream": "v1.trade",
+            "selector": "BTC_USDT_Perp@500",
+            "sequence_number": "70460",
+            "feed": {
+                "event_time": "1774809574000000000",
+                "instrument": "BTC_USDT_Perp",
+                "is_taker_buyer": False,
+                "size": "0.05",
+                "price": "66455.0",
+                "mark_price": "66443.00",
+                "trade_id": "109626185-1",
+                "venue": "ORDERBOOK",
+            },
+        },
+        ws,
+    )
+
+    assert len(store.trade.find()) == 2
+
+
+def test_grvt_subscribe_response_ignored() -> None:
+    """Check that subscribe responses are ignored."""
+    store = pybotters.GRVTDataStore()
+    ws: Any = object()
+
+    store.onmessage(
+        {
+            "request_id": 1,
+            "stream": "v1.ticker.s",
+            "subs": ["BTC_USDT_Perp@500"],
+            "unsubs": [],
+            "num_snapshots": [1],
+            "first_sequence_number": ["382134"],
+        },
+        ws,
+    )
+
+    assert store.ticker.find() == []
+    assert store.book.find() == []
+    assert store.trade.find() == []
