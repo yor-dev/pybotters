@@ -181,7 +181,14 @@ class WebSocketApp:
             # Licensed under the BSD-3-Clause
             except Exception as e:
                 logger.warning(f"{pretty_modulename(e)}: {e}")
-                if backoff_delay == BACKOFF_MIN:
+                # 429 レートリミット: 即座に最大バックオフで待機
+                if (
+                    isinstance(e, aiohttp.WSServerHandshakeError)
+                    and e.status == 429
+                ):
+                    backoff_delay = BACKOFF_MAX
+                    await asyncio.sleep(BACKOFF_MAX)
+                elif backoff_delay == BACKOFF_MIN:
                     initial_delay = random.random() * BACKOFF_INITIAL
                     await asyncio.sleep(initial_delay)
                 else:
