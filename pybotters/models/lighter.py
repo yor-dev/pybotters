@@ -129,7 +129,7 @@ class OrderBook(DataStore):
                     "price": entry["price"],
                     "size": entry["size"],
                 }
-                if not is_snapshot and entry["size"] == "0":
+                if not is_snapshot and float(entry["size"]) == 0:
                     operation["delete"].append(item)
                 else:
                     operation["upsert"].append(item)

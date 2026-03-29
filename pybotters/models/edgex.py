@@ -107,7 +107,7 @@ class Depth(DataStore):
                         "price": price,
                         "size": size,
                     }
-                    if not is_snapshot and size == "0":
+                    if not is_snapshot and float(size) == 0:
                         operation["delete"].append(item)
                     else:
                         operation["upsert"].append(item)

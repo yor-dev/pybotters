@@ -2324,6 +2324,28 @@ def test_lighter_order_book() -> None:
     )
     assert removed_bid is None
 
+    # Remove with "0.0000" (real Lighter format)
+    store.onmessage(
+        {
+            "channel": "order_book:0",
+            "offset": 41692866,
+            "order_book": {
+                "code": 0,
+                "asks": [],
+                "bids": [{"price": "3326.00", "size": "0.0000"}],
+                "offset": 41692866,
+                "nonce": 4037957055,
+            },
+            "timestamp": 1766434222700,
+            "type": "update/order_book",
+        },
+        ws,
+    )
+
+    assert store.order_book.get(
+        {"market_id": 0, "side": "bid", "price": "3326.00"}
+    ) is None
+
 
 def test_lighter_order_book_sorted() -> None:
     """Check the behavior of LighterDataStore.order_book.sorted()."""
